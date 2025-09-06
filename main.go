@@ -13,6 +13,11 @@ func main() {
 	// You can also customize physics timestep
 	engine.SetPhysicsTimestep(1.0 / 120.0) // 120 FPS physics
 
+	// // debug console
+	// if err := engine.InitializeDebugSystems(); err != nil {
+	// 	panic(err)
+	// }
+
 	if err := engine.Run(); err != nil {
 		panic(err)
 	}

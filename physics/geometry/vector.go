@@ -9,8 +9,7 @@ import (
 // Vector2D represents a 2D point or vector.
 //-----------------------------------------------------------------------------
 type Vector2D struct {
-	X float64
-	Y float64
+	X, Y float64
 }
 
 // Add two vectors.

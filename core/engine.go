@@ -33,12 +33,12 @@ type GameEngine struct {
 
 	// Core systems (to be implemented)
 	// Subsystems
-	// Input   *InputManager
-	// ECS     *ECSManager
+	Input *InputManager
+	ECS   *ECSManager
+	Render  *Renderer
+	Scenes  *SceneManager
 	// Physics *PhysicsSystem
-	// Render  *Renderer
 	// Audio   *AudioManager
-	// Scenes  *SceneManager
 }
 
 func NewGameEngine(title string, width, height int32, targetFPS int) (*GameEngine, error) {
@@ -83,7 +83,11 @@ func NewGameEngine(title string, width, height int32, targetFPS int) (*GameEngin
 		lastFrameTime:   time.Now(),
 		physicsTimestep: physicsTimestep,
 		accumulator:     0.0,
-		maxFrameTime:    0.25, // Cap at 250ms to prevent spiral of death
+		maxFrameTime:    0.25,              // Cap at 250ms to prevent spiral of death
+		Input:           NewInputManager(), // Initialize the inputManager
+		ECS:             NewECSManager(),   // Initialize the inputManager
+		Render:          NewRenderer(renderer,sdl.Color{R: 0, G: 0, B: 0, A: 255}),   // Black background
+		Scenes:          NewSceneManager(),
 	}
 
 	return engine, nil
@@ -156,14 +160,15 @@ func (ge *GameEngine) Run() error {
 func (ge *GameEngine) handleEvents() {
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch e := event.(type) {
-		case *sdl.QuitEvent:
-			ge.Stop()
 		case *sdl.WindowEvent:
 			if e.Event == sdl.WINDOWEVENT_RESIZED {
 				// Handle window resize
 				ge.handleWindowResize(e.Data1, e.Data2)
 			}
-			// TODO INPUT HANDLER
+		}
+		ge.Input.Update()
+		if ge.Input.ShouldQuit() {
+			ge.Stop()
 		}
 	}
 }
@@ -174,7 +179,7 @@ func (ge *GameEngine) updatePhysics(fixedDeltaTime float64) {
 	// This ensures consistent physics regardless of frame rate
 
 	// Update physics in scene manager
-	// TODO SCENES MANAGER
+	ge.Scenes.UpdatePhysics(fixedDeltaTime)
 
 	// Example physics operations:
 	// - Collision detection and response
@@ -186,14 +191,17 @@ func (ge *GameEngine) updatePhysics(fixedDeltaTime float64) {
 // updateGameplay handles variable timestep gameplay updates
 func (ge *GameEngine) updateGameplay(deltaTime float64) {
 	// Update input manager
-	// TODO INPUT HANDLER
+	ge.Input.Update()
 
 	// Update gameplay logic with variable timestep
 	// This allows for smooth animations and non-critical updates
-	// TODO SCENES MANAGER
+	ge.Scenes.Update(deltaTime)
 
 	// Update audio system
 	// TODO AUDIO HANDLER
+
+	// ECS System
+	ge.ECS.UpdateSystems(deltaTime)
 
 	// Example gameplay operations:
 	// - UI animations
@@ -206,15 +214,13 @@ func (ge *GameEngine) updateGameplay(deltaTime float64) {
 // render handles all rendering with interpolation
 func (ge *GameEngine) render(interpolation float64) {
 	// Clear screen with background color
-	ge.renderer.SetDrawColor(0, 0, 0, 255) // Black background
-	ge.renderer.Clear()
-
+	ge.Render.BeginFrame()
 	// Render current scene with interpolation for smooth movement
 	// Interpolation allows rendering positions between physics steps
-	// TODO SCENES MANAGER
+	ge.Scenes.Render(interpolation)
 
 	// Present the frame
-	ge.renderer.Present()
+	ge.Render.EndFrame()
 }
 
 // limitFrameRate ensures consistent render timing
@@ -293,4 +299,5 @@ func (ge *GameEngine) cleanup() {
 	}
 	img.Quit()
 	sdl.Quit()
+	ge.Input.Cleanup()
 }
