@@ -1,22 +1,19 @@
 package main
 
 import (
-	"2d_game_engine/core"
+	"game_engine/core"
+	"game_engine/simulation"
 )
 
 func main() {
-	engine, err := core.NewGameEngine("My 2D Game", 1280, 720, 144)
+	engine, err := core.NewGameEngine("My 2D Game", 1280, 720, 75)
 	if err != nil {
 		panic(err)
 	}
 
-	// You can also customize physics timestep
-	engine.SetPhysicsTimestep(1.0 / 120.0) // 120 FPS physics
-
-	// // debug console
-	// if err := engine.InitializeDebugSystems(); err != nil {
-	// 	panic(err)
-	// }
+	// engine.Scenes.Push(simulation.NewGameScene(engine.ECS,engine.Input ,engine.Render.GetRenderer()))
+	// engine.Scenes.Push(simulation.NewGravityBallScene(engine.ECS, engine.Render))
+	engine.Scenes.Push(simulation.NewShapeScene(engine.ECS, engine.Render))
 
 	if err := engine.Run(); err != nil {
 		panic(err)

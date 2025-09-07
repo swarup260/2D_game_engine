@@ -9,10 +9,9 @@ import (
 )
 
 type GameEngine struct {
-	window     *sdl.Window
-	renderer   *sdl.Renderer
-	running    bool
-	fixedDelta float64
+	window   *sdl.Window
+	renderer *sdl.Renderer
+	running  bool
 	// Timing - Fixed timestep for physics, variable for rendering
 	targetFPS     int
 	frameTime     time.Duration
@@ -33,11 +32,10 @@ type GameEngine struct {
 
 	// Core systems (to be implemented)
 	// Subsystems
-	Input *InputManager
-	ECS   *ECSManager
-	Render  *Renderer
-	Scenes  *SceneManager
-	// Physics *PhysicsSystem
+	Input  *InputManager
+	ECS    *ECSManager
+	Render *Renderer
+	Scenes *SceneManager
 	// Audio   *AudioManager
 }
 
@@ -83,10 +81,10 @@ func NewGameEngine(title string, width, height int32, targetFPS int) (*GameEngin
 		lastFrameTime:   time.Now(),
 		physicsTimestep: physicsTimestep,
 		accumulator:     0.0,
-		maxFrameTime:    0.25,              // Cap at 250ms to prevent spiral of death
-		Input:           NewInputManager(), // Initialize the inputManager
-		ECS:             NewECSManager(),   // Initialize the inputManager
-		Render:          NewRenderer(renderer,sdl.Color{R: 0, G: 0, B: 0, A: 255}),   // Black background
+		maxFrameTime:    0.25,                                                       // Cap at 250ms to prevent spiral of death
+		Input:           NewInputManager(),                                          // Initialize the inputManager
+		ECS:             NewECSManager(),                                            // Initialize the inputManager
+		Render:          NewRenderer(renderer, sdl.Color{R: 0, G: 0, B: 0, A: 255}), // Black background
 		Scenes:          NewSceneManager(),
 	}
 
@@ -213,13 +211,12 @@ func (ge *GameEngine) updateGameplay(deltaTime float64) {
 
 // render handles all rendering with interpolation
 func (ge *GameEngine) render(interpolation float64) {
-	// Clear screen with background color
 	ge.Render.BeginFrame()
 	// Render current scene with interpolation for smooth movement
 	// Interpolation allows rendering positions between physics steps
 	ge.Scenes.Render(interpolation)
 
-	// Present the frame
+	// // Present the frame
 	ge.Render.EndFrame()
 }
 
@@ -300,4 +297,5 @@ func (ge *GameEngine) cleanup() {
 	img.Quit()
 	sdl.Quit()
 	ge.Input.Cleanup()
+	ge.Scenes.Pop()
 }

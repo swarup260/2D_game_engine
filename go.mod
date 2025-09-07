@@ -1,4 +1,4 @@
-module 2d_game_engine
+module game_engine
 
 go 1.24.6
 

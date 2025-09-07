@@ -12,9 +12,7 @@ import (
 type Entity uint32
 
 // Component interface that all components must implement
-type Component interface {
-	GetType() string
-}
+type Component interface{}
 
 // System interface that all systems must implement
 type System interface {
@@ -30,7 +28,7 @@ type RenderSystem interface {
 
 // ECSManager manages entities, components, and systems
 type ECSManager struct {
-	mutex            sync.RWMutex
+	mutex         sync.RWMutex
 	nextEntityID  Entity
 	entities      map[Entity]bool
 	components    map[Entity]map[reflect.Type]Component
@@ -66,7 +64,7 @@ func (ecs *ECSManager) CreateEntity() Entity {
 func (ecs *ECSManager) DestroyEntity(entity Entity) {
 	ecs.mutex.Lock()
 	defer ecs.mutex.Unlock()
-	
+
 	delete(ecs.entities, entity)
 	delete(ecs.components, entity)
 }
@@ -93,7 +91,7 @@ func (ecs *ECSManager) GetComponent(entity Entity, componentType reflect.Type) (
 	if !ecs.entities[entity] {
 		return nil, false
 	}
-	
+
 	component, exists := ecs.components[entity][componentType]
 	return component, exists
 }
@@ -106,7 +104,7 @@ func (ecs *ECSManager) RemoveComponent(entity Entity, componentType reflect.Type
 	if !ecs.entities[entity] {
 		return
 	}
-	
+
 	delete(ecs.components[entity], componentType)
 }
 
@@ -118,9 +116,22 @@ func (ecs *ECSManager) HasComponent(entity Entity, componentType reflect.Type) b
 	if !ecs.entities[entity] {
 		return false
 	}
-	
+
 	_, exists := ecs.components[entity][componentType]
 	return exists
+}
+
+// AddSystem adds a system to the manager
+func (ecs *ECSManager) AddSystem(system System) {
+	ecs.mutex.Lock()
+	defer ecs.mutex.Unlock()
+
+	ecs.systems = append(ecs.systems, system)
+
+	// Check if it's also a render system
+	if renderSys, ok := system.(RenderSystem); ok {
+		ecs.renderSystems = append(ecs.renderSystems, renderSys)
+	}
 }
 
 // GetEntitiesWithComponents returns entities that have all specified components
@@ -141,7 +152,6 @@ func (ecs *ECSManager) GetEntitiesWithComponents(requiredTypes []reflect.Type) [
 			entities = append(entities, entity)
 		}
 	}
-	
 	return entities
 }
 
@@ -161,6 +171,52 @@ func (m *ECSManager) RenderSystems(renderer *sdl.Renderer) {
 	}
 }
 
+// CopyEntity creates a new entity and copies all components from the source entity
+func (ecs *ECSManager) CopyEntity(source Entity) (Entity, error) {
+	ecs.mutex.RLock()
+	sourceComponents, exists := ecs.components[source]
+	ecs.mutex.RUnlock()
+
+	if !exists {
+		return 0, fmt.Errorf("source entity %d does not exist", source)
+	}
+
+	newEntity := ecs.CreateEntity()
+
+	for compType, comp := range sourceComponents {
+		// Attempt to deep copy the component
+		copiedComp, err := deepCopyComponent(comp)
+		if err != nil {
+			return 0, fmt.Errorf("failed to copy component %v: %v", compType, err)
+		}
+		if err := ecs.AddComponent(newEntity, copiedComp); err != nil {
+			return 0, err
+		}
+	}
+
+	return newEntity, nil
+}
+
+func deepCopyComponent(comp Component) (Component, error) {
+	origVal := reflect.ValueOf(comp)
+
+	// Handle pointer types
+	if origVal.Kind() == reflect.Ptr {
+		origVal = origVal.Elem()
+	}
+
+	// Create a new instance of the same type
+	copyVal := reflect.New(origVal.Type()).Elem()
+
+	// Copy the value
+	copyVal.Set(origVal)
+
+	// Return as interface
+	if compVal := copyVal.Interface(); compVal != nil {
+		return compVal, nil
+	}
+	return nil, fmt.Errorf("failed to copy component of type %v", origVal.Type())
+}
 
 // GetEntityCount returns the number of active entities
 func (ecs *ECSManager) GetEntityCount() int {

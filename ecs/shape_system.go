@@ -1,19 +1,89 @@
-package renderer
+package ecs
 
 import (
 	"math"
+	"reflect"
 
-	"2d_game_engine/physics/geometry"
+	"game_engine/core"
+	"game_engine/physics"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type Vector2D = geometry.Vector2D
-type Polygon = geometry.Polygon
-type Triangle = geometry.Triangle
+type DrawShape interface {
+	Draw(fill bool, renderer *sdl.Renderer)
+}
+
+type Circle struct {
+	Center physics.Vector2D
+	Radius float64
+}
+
+func (c Circle) Draw(fill bool, renderer *sdl.Renderer) {
+	if fill {
+		drawFilledCircle(renderer, c.Center, c.Radius)
+	} else {
+		drawCircle(renderer, c.Center, c.Radius)
+
+	}
+}
+
+func drawCircle(renderer *sdl.Renderer, center physics.Vector2D, radius float64) {
+	x := int32(radius)
+	y := int32(0)
+	err := int32(0)
+
+	centerX := int32(center.X)
+	centerY := int32(center.Y)
+
+	for x >= y {
+		renderer.DrawPoint(centerX+x, centerY+y)
+		renderer.DrawPoint(centerX+y, centerY+x)
+		renderer.DrawPoint(centerX-y, centerY+x)
+		renderer.DrawPoint(centerX-x, centerY+y)
+		renderer.DrawPoint(centerX-x, centerY-y)
+		renderer.DrawPoint(centerX-y, centerY-x)
+		renderer.DrawPoint(centerX+y, centerY-x)
+		renderer.DrawPoint(centerX+x, centerY-y)
+
+		if err <= 0 {
+			y += 1
+			err += 2*y + 1
+		}
+		if err > 0 {
+			x -= 1
+			err -= 2*x + 1
+		}
+	}
+}
+
+func drawFilledCircle(renderer *sdl.Renderer, center physics.Vector2D, radius float64) {
+	for y := -radius; y <= radius; y++ {
+		for x := -radius; x <= radius; x++ {
+			if x*x+y*y <= radius*radius {
+				renderer.DrawPoint(int32(center.X+x), int32(center.Y+y))
+			}
+		}
+	}
+}
+
+type Polygon struct {
+	Vertices []physics.Vector2D
+	Position physics.Vector2D
+}
+
+func (p Polygon) Draw(fill bool, renderer *sdl.Renderer) {
+	if fill {
+		drawFilledPolygon(renderer, &p)
+	} else {
+		drawPolygon(renderer, &p)
+
+	}
+}
+
 // drawPolygon renders the polygon by drawing lines between its vertices.
 // It translates the vertex coordinates based on the polygon's position.
-func DrawPolygon(renderer *sdl.Renderer,p *Polygon) {
+func drawPolygon(renderer *sdl.Renderer, p *Polygon) {
 	// Check for a valid polygon with at least 3 vertices.
 	if len(p.Vertices) < 3 {
 		return
@@ -37,7 +107,7 @@ func DrawPolygon(renderer *sdl.Renderer,p *Polygon) {
 }
 
 // DrawFilledPolygon draws a filled polygon using a scanline fill algorithm.
-func DrawFilledPolygon(renderer *sdl.Renderer, p *Polygon) {
+func drawFilledPolygon(renderer *sdl.Renderer, p *Polygon) {
 	if len(p.Vertices) < 3 {
 		return
 	}
@@ -45,11 +115,11 @@ func DrawFilledPolygon(renderer *sdl.Renderer, p *Polygon) {
 	// 1. Find the top and bottom bounds of the polygon.
 	minY := math.Inf(1)
 	maxY := math.Inf(-1)
-	
+
 	// Create a slice of absolute vertices.
-	absoluteVertices := make([]Vector2D, len(p.Vertices))
+	absoluteVertices := make([]physics.Vector2D, len(p.Vertices))
 	for i, v := range p.Vertices {
-		absoluteVertices[i] = Vector2D{X: v.X + p.Position.X, Y: v.Y + p.Position.Y}
+		absoluteVertices[i] = physics.Vector2D{X: v.X + p.Position.X, Y: v.Y + p.Position.Y}
 		if absoluteVertices[i].Y < minY {
 			minY = absoluteVertices[i].Y
 		}
@@ -97,36 +167,21 @@ func DrawFilledPolygon(renderer *sdl.Renderer, p *Polygon) {
 	}
 }
 
-func DrawCircle(renderer *sdl.Renderer, center Vector2D, radius int32) {
-	x := radius
-	y := int32(0)
-	err := int32(0)
+type Triangle struct {
+	Vertices []physics.Vector2D
+	Position physics.Vector2D
+}
 
-	centerX := int32(center.X)
-	centerY := int32(center.Y)
+func (t Triangle) Draw(fill bool, renderer *sdl.Renderer) {
+	if fill {
+		drawFilledTriangle(renderer, &t)
+	} else {
+		drawTriangle(renderer, &t)
 
-	for x >= y {
-		renderer.DrawPoint(centerX+x, centerY+y)
-		renderer.DrawPoint(centerX+y, centerY+x)
-		renderer.DrawPoint(centerX-y, centerY+x)
-		renderer.DrawPoint(centerX-x, centerY+y)
-		renderer.DrawPoint(centerX-x, centerY-y)
-		renderer.DrawPoint(centerX-y, centerY-x)
-		renderer.DrawPoint(centerX+y, centerY-x)
-		renderer.DrawPoint(centerX+x, centerY-y)
-
-		if err <= 0 {
-			y += 1
-			err += 2*y + 1
-		}
-		if err > 0 {
-			x -= 1
-			err -= 2*x + 1
-		}
 	}
 }
 
-func DrawTriangle(renderer *sdl.Renderer,t *Triangle) {
+func drawTriangle(renderer *sdl.Renderer, t *Triangle) {
 	if len(t.Vertices) != 3 {
 		return
 	}
@@ -144,17 +199,17 @@ func DrawTriangle(renderer *sdl.Renderer,t *Triangle) {
 }
 
 // DrawFilledTriangle draws a filled triangle using a scanline fill algorithm.
-func DrawFilledTriangle(renderer *sdl.Renderer, t *Triangle) {
+func drawFilledTriangle(renderer *sdl.Renderer, t *Triangle) {
 	if len(t.Vertices) != 3 {
 		return
 	}
 
 	// 1. Get absolute vertices and sort them by Y-coordinate.
-	absVertices := make([]Vector2D, 3)
+	absVertices := make([]physics.Vector2D, 3)
 	for i, v := range t.Vertices {
-		absVertices[i] = Vector2D{X: v.X + t.Position.X, Y: v.Y + t.Position.Y}
+		absVertices[i] = physics.Vector2D{X: v.X + t.Position.X, Y: v.Y + t.Position.Y}
 	}
-	
+
 	// Sort vertices by Y-coordinate (top to bottom).
 	for i := 0; i < 2; i++ {
 		for j := i + 1; j < 3; j++ {
@@ -169,14 +224,14 @@ func DrawFilledTriangle(renderer *sdl.Renderer, t *Triangle) {
 	v3 := absVertices[2]
 
 	// 2. Iterate through scanlines to fill the top and bottom parts of the triangle.
-	
+
 	// Top half of the triangle (from v1 to v2).
 	for y := int32(v1.Y); y <= int32(v2.Y); y++ {
 		if v2.Y != v1.Y && v3.Y != v1.Y {
 			// Find x-coordinates on the two main edges.
 			x1 := v1.X + (float64(y)-v1.Y)*(v2.X-v1.X)/(v2.Y-v1.Y)
 			x2 := v1.X + (float64(y)-v1.Y)*(v3.X-v1.X)/(v3.Y-v1.Y)
-			
+
 			// Draw a horizontal line between them.
 			if x1 > x2 {
 				x1, x2 = x2, x1
@@ -191,7 +246,7 @@ func DrawFilledTriangle(renderer *sdl.Renderer, t *Triangle) {
 			// Find x-coordinates on the two main edges.
 			x1 := v2.X + (float64(y)-v2.Y)*(v3.X-v2.X)/(v3.Y-v2.Y)
 			x2 := v1.X + (float64(y)-v1.Y)*(v3.X-v1.X)/(v3.Y-v1.Y)
-			
+
 			// Draw a horizontal line between them.
 			if x1 > x2 {
 				x1, x2 = x2, x1
@@ -201,12 +256,30 @@ func DrawFilledTriangle(renderer *sdl.Renderer, t *Triangle) {
 	}
 }
 
-func DrawFilledCircle(renderer *sdl.Renderer, center Vector2D, radius float64) {
-	for y := -radius; y <= radius; y++ {
-		for x := -radius; x <= radius; x++ {
-			if x*x+y*y <= radius*radius {
-				renderer.DrawPoint(int32(center.X+x), int32(center.Y+y))
-			}
-		}
+type Shape struct {
+	Fill  bool
+	Shape DrawShape
+	Color sdl.Color
+}
+
+type ShapeRenderSystem struct{}
+
+func (srs *ShapeRenderSystem) GetRequiredComponents() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(&Shape{}),
+	}
+}
+
+func (srs *ShapeRenderSystem) Update(dt float64, entities []core.Entity, manager *core.ECSManager) {
+	// This system doesn't need to update anything in the Update phase
+}
+
+func (srs *ShapeRenderSystem) Render(renderer *sdl.Renderer, entities []core.Entity, manager *core.ECSManager) {
+	for _, entity := range entities {
+		shape, _ := manager.GetComponent(entity, reflect.TypeOf(&Shape{}))
+
+		s := shape.(*Shape)
+		renderer.SetDrawColor(s.Color.R, s.Color.G, s.Color.B, s.Color.A)
+		s.Shape.Draw(s.Fill, renderer)
 	}
 }

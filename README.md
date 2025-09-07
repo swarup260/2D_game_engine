@@ -119,3 +119,8 @@ my-game-engine/
 
 
 
+
+
+<!-- Future arch to faster the ECS -->
+
+<!-- https://www.youtube.com/watch?v=71RSWVyOMEY -->

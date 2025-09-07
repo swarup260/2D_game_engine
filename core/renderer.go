@@ -17,7 +17,6 @@ func NewRenderer(r *sdl.Renderer, clearColor sdl.Color) *Renderer {
     }
 }
 
-
 // BeginFrame clears the screen
 func (re *Renderer) BeginFrame() {
     re.renderer.SetDrawColor(re.clearCol.R, re.clearCol.G, re.clearCol.B, re.clearCol.A)
@@ -27,4 +26,8 @@ func (re *Renderer) BeginFrame() {
 // EndFrame presents the rendered frame
 func (re *Renderer) EndFrame() {
     re.renderer.Present()
+}
+
+func (re *Renderer) GetRenderer() *sdl.Renderer {
+    return re.renderer
 }
