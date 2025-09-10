@@ -9,9 +9,11 @@ import (
 )
 
 type GameEngine struct {
-	window   *sdl.Window
-	renderer *sdl.Renderer
-	running  bool
+	window        *sdl.Window
+	renderer      *sdl.Renderer
+	running       bool
+	WINDOW_WIDTH  int32
+	WINDOW_HEIGHT int32
 	// Timing - Fixed timestep for physics, variable for rendering
 	targetFPS     int
 	frameTime     time.Duration
@@ -74,6 +76,8 @@ func NewGameEngine(title string, width, height int32, targetFPS int) (*GameEngin
 
 	engine := &GameEngine{
 		window:          window,
+		WINDOW_WIDTH:    width,  // Set initial width
+		WINDOW_HEIGHT:   height, // Set initial height
 		renderer:        renderer,
 		running:         false,
 		targetFPS:       targetFPS,
@@ -127,6 +131,10 @@ func (ge *GameEngine) Run() error {
 
 		// Fixed timestep physics updates
 		// Run physics multiple times if we've accumulated enough time
+		// Cap accumulator to prevent too many physics updates
+		if ge.accumulator > ge.physicsTimestep*5 { // Limit to 5 physics steps
+			ge.accumulator = ge.physicsTimestep * 5
+		}
 		for ge.accumulator >= ge.physicsTimestep {
 			ge.updatePhysics(ge.physicsTimestep)
 			ge.accumulator -= ge.physicsTimestep
@@ -143,7 +151,7 @@ func (ge *GameEngine) Run() error {
 		ge.render(interpolation)
 
 		// Frame rate limiting for rendering
-		ge.limitFrameRate(frameStart)
+		ge.DefaultFrameRateLimiter(frameStart, ge.targetFPS)
 
 		// Update FPS counter
 		ge.updateFPS()
@@ -179,6 +187,8 @@ func (ge *GameEngine) updatePhysics(fixedDeltaTime float64) {
 	// Update physics in scene manager
 	ge.Scenes.UpdatePhysics(fixedDeltaTime)
 
+	ge.ECS.UpdatePhysics(fixedDeltaTime)
+
 	// Example physics operations:
 	// - Collision detection and response
 	// - Rigid body dynamics
@@ -188,9 +198,6 @@ func (ge *GameEngine) updatePhysics(fixedDeltaTime float64) {
 
 // updateGameplay handles variable timestep gameplay updates
 func (ge *GameEngine) updateGameplay(deltaTime float64) {
-	// Update input manager
-	ge.Input.Update()
-
 	// Update gameplay logic with variable timestep
 	// This allows for smooth animations and non-critical updates
 	ge.Scenes.Update(deltaTime)
@@ -199,7 +206,7 @@ func (ge *GameEngine) updateGameplay(deltaTime float64) {
 	// TODO AUDIO HANDLER
 
 	// ECS System
-	ge.ECS.UpdateSystems(deltaTime)
+	ge.ECS.UpdateGameplay(deltaTime)
 
 	// Example gameplay operations:
 	// - UI animations
@@ -216,17 +223,27 @@ func (ge *GameEngine) render(interpolation float64) {
 	// Interpolation allows rendering positions between physics steps
 	ge.Scenes.Render(interpolation)
 
+	ge.ECS.RenderSystems(ge.renderer, interpolation)
+
 	// // Present the frame
 	ge.Render.EndFrame()
 }
 
 // limitFrameRate ensures consistent render timing
-func (ge *GameEngine) limitFrameRate(frameStart time.Time) {
+func (ge *GameEngine) LimitFrameRate(frameStart time.Time) {
 	frameTime := time.Since(frameStart)
 
 	if frameTime < ge.frameTime {
 		sleepTime := ge.frameTime - frameTime
 		time.Sleep(sleepTime)
+	}
+}
+
+func (ge *GameEngine) DefaultFrameRateLimiter(frameStart time.Time, targetFPS int) {
+	frameDuration := time.Second / time.Duration(targetFPS)
+	elapsed := time.Since(frameStart)
+	if elapsed < frameDuration {
+		time.Sleep(frameDuration - elapsed)
 	}
 }
 
@@ -286,8 +303,24 @@ func (ge *GameEngine) GetRenderer() *sdl.Renderer {
 	return ge.renderer
 }
 
+// Get Window Width
+func (ge *GameEngine) GetWindowWidth() int32 {
+	return ge.WINDOW_WIDTH
+}
+
+// Get Window Height
+func (ge *GameEngine) GetWindowHeight() int32 {
+	return ge.WINDOW_HEIGHT
+}
+
 // Destroy cleans up engine resources
 func (ge *GameEngine) cleanup() {
+	if ge.Input != nil {
+		ge.Input.Cleanup()
+	}
+	if ge.Scenes != nil {
+		ge.Scenes.Pop()
+	}
 	if ge.renderer != nil {
 		ge.renderer.Destroy()
 	}
@@ -296,6 +329,4 @@ func (ge *GameEngine) cleanup() {
 	}
 	img.Quit()
 	sdl.Quit()
-	ge.Input.Cleanup()
-	ge.Scenes.Pop()
 }

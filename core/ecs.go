@@ -23,27 +23,30 @@ type System interface {
 // RenderSystem interface for systems that need rendering
 type RenderSystem interface {
 	System
-	Render(renderer *sdl.Renderer, entities []Entity, manager *ECSManager)
+	Render(renderer *sdl.Renderer, interpolation float64, entities []Entity, manager *ECSManager)
 }
 
 // ECSManager manages entities, components, and systems
 type ECSManager struct {
-	mutex         sync.RWMutex
-	nextEntityID  Entity
-	entities      map[Entity]bool
-	components    map[Entity]map[reflect.Type]Component
-	systems       []System
-	renderSystems []RenderSystem
+	mutex        sync.RWMutex
+	nextEntityID Entity
+	entities     map[Entity]bool
+	components   map[Entity]map[reflect.Type]Component
+	// Systems by category
+	physicsSystems  []System       // runs in fixed timestep
+	gameplaySystems []System       // runs in variable timestep
+	renderSystems   []RenderSystem // runs every frame with interpolation
 }
 
 // NewECSManager creates a new ECS manager
 func NewECSManager() *ECSManager {
 	return &ECSManager{
-		nextEntityID:  1,
-		entities:      make(map[Entity]bool),
-		components:    make(map[Entity]map[reflect.Type]Component),
-		systems:       make([]System, 0),
-		renderSystems: make([]RenderSystem, 0),
+		nextEntityID:    1,
+		entities:        make(map[Entity]bool),
+		components:      make(map[Entity]map[reflect.Type]Component),
+		physicsSystems:  make([]System, 0),
+		gameplaySystems: make([]System, 0),
+		renderSystems:   make([]RenderSystem, 0),
 	}
 }
 
@@ -121,19 +124,6 @@ func (ecs *ECSManager) HasComponent(entity Entity, componentType reflect.Type) b
 	return exists
 }
 
-// AddSystem adds a system to the manager
-func (ecs *ECSManager) AddSystem(system System) {
-	ecs.mutex.Lock()
-	defer ecs.mutex.Unlock()
-
-	ecs.systems = append(ecs.systems, system)
-
-	// Check if it's also a render system
-	if renderSys, ok := system.(RenderSystem); ok {
-		ecs.renderSystems = append(ecs.renderSystems, renderSys)
-	}
-}
-
 // GetEntitiesWithComponents returns entities that have all specified components
 func (ecs *ECSManager) GetEntitiesWithComponents(requiredTypes []reflect.Type) []Entity {
 	ecs.mutex.Lock()
@@ -155,20 +145,46 @@ func (ecs *ECSManager) GetEntitiesWithComponents(requiredTypes []reflect.Type) [
 	return entities
 }
 
-// UpdateSystems runs all systems with the given delta time
-func (m *ECSManager) UpdateSystems(dt float64) {
-	for _, system := range m.systems {
-		entities := m.GetEntitiesWithComponents(system.GetRequiredComponents())
-		system.Update(dt, entities, m)
+// UpdateGameplay runs all gameplay loop systems with the given delta time
+func (ecs *ECSManager) UpdateGameplay(dt float64) {
+	for _, system := range ecs.gameplaySystems {
+		entities := ecs.GetEntitiesWithComponents(system.GetRequiredComponents())
+		system.Update(dt, entities, ecs)
+	}
+}
+
+// UpdatePhysics runs all physics at determine time
+func (ecs *ECSManager) UpdatePhysics(dt float64) {
+	for _, system := range ecs.physicsSystems {
+		entities := ecs.GetEntitiesWithComponents(system.GetRequiredComponents())
+		system.Update(dt, entities, ecs)
 	}
 }
 
 // RenderSystems runs all render systems
-func (m *ECSManager) RenderSystems(renderer *sdl.Renderer) {
-	for _, system := range m.renderSystems {
-		entities := m.GetEntitiesWithComponents(system.GetRequiredComponents())
-		system.Render(renderer, entities, m)
+func (ecs *ECSManager) RenderSystems(renderer *sdl.Renderer, interpolation float64) {
+	for _, system := range ecs.renderSystems {
+		entities := ecs.GetEntitiesWithComponents(system.GetRequiredComponents())
+		system.Render(renderer, interpolation, entities, ecs)
 	}
+}
+
+func (ecs *ECSManager) AddPhysicsSystem(system System) {
+	ecs.mutex.Lock()
+	defer ecs.mutex.Unlock()
+	ecs.physicsSystems = append(ecs.physicsSystems, system)
+}
+
+func (ecs *ECSManager) AddGameplaySystem(system System) {
+	ecs.mutex.Lock()
+	defer ecs.mutex.Unlock()
+	ecs.gameplaySystems = append(ecs.gameplaySystems, system)
+}
+
+func (ecs *ECSManager) AddRenderSystem(system RenderSystem) {
+	ecs.mutex.Lock()
+	defer ecs.mutex.Unlock()
+	ecs.renderSystems = append(ecs.renderSystems, system)
 }
 
 // CopyEntity creates a new entity and copies all components from the source entity
