@@ -124,3 +124,15 @@ my-game-engine/
 <!-- Future arch to faster the ECS -->
 
 <!-- https://www.youtube.com/watch?v=71RSWVyOMEY -->
+
+
+
+Your loop is now at a stable baseline. The next big milestone would be:
+
+Implement ECS components for Transform + Sprite + Physics
+
+Store Prev/Current states for interpolation
+
+Move Render to interpolate based on those
+
+Add simple physics (gravity, velocity, collision)

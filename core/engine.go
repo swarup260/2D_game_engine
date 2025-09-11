@@ -183,11 +183,10 @@ func (ge *GameEngine) handleEvents() {
 func (ge *GameEngine) updatePhysics(fixedDeltaTime float64) {
 	// Update physics systems with fixed timestep
 	// This ensures consistent physics regardless of frame rate
+	ge.ECS.UpdatePhysics(fixedDeltaTime)
 
 	// Update physics in scene manager
 	ge.Scenes.UpdatePhysics(fixedDeltaTime)
-
-	ge.ECS.UpdatePhysics(fixedDeltaTime)
 
 	// Example physics operations:
 	// - Collision detection and response
@@ -200,14 +199,15 @@ func (ge *GameEngine) updatePhysics(fixedDeltaTime float64) {
 func (ge *GameEngine) updateGameplay(deltaTime float64) {
 	// Update gameplay logic with variable timestep
 	// This allows for smooth animations and non-critical updates
+	// ECS System
+	ge.ECS.UpdateGameplay(deltaTime)
+
+	ge.Scenes.HandleInput(*ge.Input)
+
 	ge.Scenes.Update(deltaTime)
 
 	// Update audio system
 	// TODO AUDIO HANDLER
-
-	// ECS System
-	ge.ECS.UpdateGameplay(deltaTime)
-
 	// Example gameplay operations:
 	// - UI animations
 	// - Particle effects (non-physics)
@@ -221,9 +221,9 @@ func (ge *GameEngine) render(interpolation float64) {
 	ge.Render.BeginFrame()
 	// Render current scene with interpolation for smooth movement
 	// Interpolation allows rendering positions between physics steps
-	ge.Scenes.Render(interpolation)
-
 	ge.ECS.RenderSystems(ge.renderer, interpolation)
+
+	ge.Scenes.Render(interpolation)
 
 	// // Present the frame
 	ge.Render.EndFrame()

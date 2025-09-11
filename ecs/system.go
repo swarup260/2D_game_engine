@@ -50,75 +50,7 @@ func (ms *MovementSystem) Update(dt float64, entities []core.Entity, manager *co
 	}
 }
 
-// InputSystem handles player input
-type InputSystem struct {
-	inputManager *core.InputManager
-}
 
-func NewInputSystem(im *core.InputManager) *InputSystem {
-	return &InputSystem{inputManager: im}
-}
-
-func (is *InputSystem) GetRequiredComponents() []reflect.Type {
-	return []reflect.Type{
-		reflect.TypeOf(&Input{}),
-		reflect.TypeOf(&Velocity{}),
-	}
-}
-
-func (is *InputSystem) Update(dt float64, entities []core.Entity, manager *core.ECSManager) {
-	// Get current keyboard state
-	keyState := sdl.GetKeyboardState()
-
-	for _, entity := range entities {
-		// SAFE WAY 1: Check exists before type assertion
-		inputComp, inputExists := manager.GetComponent(entity, reflect.TypeOf(&Input{}))
-		velocityComp, velocityExists := manager.GetComponent(entity, reflect.TypeOf(&Velocity{}))
-
-		if !inputExists || !velocityExists || inputComp == nil || velocityComp == nil {
-			continue // Skip this entity if components are missing
-		}
-
-		// Now safe to type assert because we checked for nil
-		input, inputOk := inputComp.(*Input)
-		velocity, velocityOk := velocityComp.(*Velocity)
-
-		if !inputOk || !velocityOk {
-			continue // Skip if type assertion failed
-		}
-
-		// Update input state
-		input.MoveUp = keyState[sdl.SCANCODE_W] != 0 || keyState[sdl.SCANCODE_UP] != 0
-		input.MoveDown = keyState[sdl.SCANCODE_S] != 0 || keyState[sdl.SCANCODE_DOWN] != 0
-		input.MoveLeft = keyState[sdl.SCANCODE_A] != 0 || keyState[sdl.SCANCODE_LEFT] != 0
-		input.MoveRight = keyState[sdl.SCANCODE_D] != 0 || keyState[sdl.SCANCODE_RIGHT] != 0
-
-		// Reset velocity
-		velocity.X = 0
-		velocity.Y = 0
-
-		// Apply movement based on input
-		speed := 300.0
-		if input.MoveLeft {
-			velocity.X -= speed
-		}
-		if input.MoveRight {
-			velocity.X += speed
-		}
-		if input.MoveUp {
-			velocity.Y -= speed
-		}
-		if input.MoveDown {
-			velocity.Y += speed
-		}
-
-		// Normalize diagonal movement
-		if velocity.X != 0 && velocity.Y != 0 {
-			velocity.X *= 0.707
-			velocity.Y *= 0.707
-		}
-	}
-}
 
 // SpriteRenderSystem renders sprites
 type SpriteRenderSystem struct{}

@@ -34,13 +34,7 @@ type Health struct {
 	Max     int
 }
 
-// Input component for player-controlled entities
-type Input struct {
-	MoveUp    bool
-	MoveDown  bool
-	MoveLeft  bool
-	MoveRight bool
-}
+
 
 // RigidBody wraps a physics.Body
 type RigidBody struct {
